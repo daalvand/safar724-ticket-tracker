@@ -1,0 +1,19 @@
+{
+  "description": "track ticket from safar724",
+  "autoload": {
+    "psr-4": {
+      "Daalvand\\Safar724AutoTrack\\": "src\\"
+    }
+  },
+  "require": {
+    "php": ">=8.2",
+    "guzzlehttp/guzzle": "7.8.0",
+    "nesbot/carbon": "^2.70",
+    "morilog/jalali": "^3.4",
+    "symfony/cache": "^6.3"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "dev-main",
+    "symfony/var-dumper": "@dev"
+  }
+}

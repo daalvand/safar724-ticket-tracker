@@ -7,6 +7,7 @@ use Daalvand\Safar724AutoTrack\TicketChecker;
 use Daalvand\Safar724AutoTrack\ValueObjects\TicketCheckerValueObject;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Validator\Validation;
@@ -22,9 +23,9 @@ class TicketTrackerCommand extends Command
              ->addArgument('destination', InputArgument::REQUIRED, 'Destination location')
              ->addArgument('from-date', InputArgument::REQUIRED, 'Start date for tracking')
              ->addArgument('to-date', InputArgument::REQUIRED, 'End date for tracking')
-             ->addArgument('telegram-chat-id', InputArgument::OPTIONAL, 'Telegram chat ID for notifications')
-             ->addArgument('check-duration', InputArgument::OPTIONAL, 'Check duration in seconds (optional)')
-             ->addArgument('check-times', InputArgument::OPTIONAL, 'Number of times to check (optional)');
+             ->addOption('telegram-chat-id', null, InputOption::VALUE_OPTIONAL, 'Telegram chat ID for notifications', (int)$_ENV['TELEGRAM_CHAT_ID'])
+             ->addOption('check-duration', null, InputOption::VALUE_OPTIONAL, 'Check duration in seconds (optional)')
+             ->addOption('check-times', null, InputOption::VALUE_OPTIONAL, 'Number of times to check (optional)');
     }
 
 
@@ -43,9 +44,9 @@ class TicketTrackerCommand extends Command
         $destination   = $input->getArgument('destination');
         $from          = $input->getArgument('from-date');
         $to            = $input->getArgument('to-date');
-        $chatId        = $input->getArgument('telegram-chat-id') ?? $_ENV['TELEGRAM_CHAT_ID'];
-        $checkDuration = $input->getArgument('check-duration');
-        $checkTimes    = $input->getArgument('check-times');
+        $chatId        = $input->getOption('telegram-chat-id');
+        $checkDuration = $input->getOption('check-duration');
+        $checkTimes    = $input->getOption('check-times');
 
         $valueObject = new TicketCheckerValueObject($from, $to, $source, $destination, $chatId);
 
@@ -89,6 +90,7 @@ class TicketTrackerCommand extends Command
             ],
             'telegram-chat-id' => [
                 new Assert\Type(['type' => 'integer', 'message' => 'Telegram chat ID must be an integer.']),
+                new Assert\GreaterThan(['value' => 0, 'message' => 'Telegram chat ID must be greater than 0.']),
             ],
             'check-duration'   => [
                 new Assert\Optional(),
@@ -101,7 +103,12 @@ class TicketTrackerCommand extends Command
         ];
 
         foreach ($validationRules as $argument => $rules) {
-            $value      = $input->getArgument($argument);
+            if ($input->hasArgument($argument)) {
+                $value = $input->getArgument($argument);
+            } else {
+                $value = $input->getOption($argument);
+            }
+
             $violations = $validator->validate($value, $rules);
 
             if (count($violations) > 0) {

@@ -9,10 +9,6 @@ use GuzzleHttp\Psr7\Response;
 
 class Telegram
 {
-    private const BOT_TOKEN = '5487878955:AAHbqiHD5JBpXorVG62ZaSm-ARkS5jHw_ZM';
-    private const VERIFY    = false;
-
-
     /**
      * @throws Exception
      */
@@ -50,11 +46,11 @@ class Telegram
      * @throws Exception
      */
     public function request(string $path, string $httpMethod = 'GET', array $options = []): Response {
-        $verify     = self::VERIFY;
+        $verify     = $this->verify();
         $proxy      = $this->getProxies();
         $http_error = true;
         $options    = compact('proxy', 'verify', 'http_error') + $options;
-        $botToken   = self::BOT_TOKEN;
+        $botToken   = $this->botToken();
         $url        = "https://api.telegram.org/bot$botToken/" . trim($path, '/ ');
 
 
@@ -84,10 +80,16 @@ class Telegram
 
 
     private function getProxies(): array {
-        $host = "127.0.0.1";
-        return [
-            'http'  => "http://$host:2081",
-            'https' => "http://$host:2081",
-        ];
+        $proxies = $_ENV['TELEGRAM_PROXIES'];
+        return explode(',', $proxies);
+    }
+
+    private function botToken(): string {
+        return $_ENV['TELEGRAM_BOT_TOKEN'];
+    }
+
+    private function verify(): bool {
+        $verify = $_ENV['TELEGRAM_VERIFY'];
+        return $verify === "1" || strtolower($verify) === 'true';
     }
 }

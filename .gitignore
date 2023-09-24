@@ -1,3 +1,4 @@
 /vendor
 /all-cities.json
 /.idea
+.env

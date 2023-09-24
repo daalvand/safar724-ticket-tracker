@@ -10,10 +10,14 @@
     "guzzlehttp/guzzle": "7.8.0",
     "nesbot/carbon": "^2.70",
     "morilog/jalali": "^3.4",
-    "symfony/cache": "^6.3"
+    "symfony/cache": "^6.3",
+    "symfony/console": "^6.3",
+    "vlucas/phpdotenv": "^5.5",
+    "symfony/validator": "^6.3",
+    "symfony/property-access": "^6.3"
   },
   "require-dev": {
-    "phpunit/phpunit": "dev-main",
-    "symfony/var-dumper": "@dev"
+    "phpunit/phpunit": "^10.3.5",
+    "symfony/var-dumper": "^6.3"
   }
 }

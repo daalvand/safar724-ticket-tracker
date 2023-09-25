@@ -80,8 +80,11 @@ class Telegram
 
 
     private function getProxies(): array {
-        $proxies = $_ENV['TELEGRAM_PROXIES'];
-        return explode(',', $proxies);
+        return [
+            'http'   => $_ENV['TELEGRAM_HTTP_PROXY'],
+            'https'  => $_ENV['TELEGRAM_HTTP_PROXY'],
+            'socks5' => $_ENV['TELEGRAM_SOCKS5_PROXY'],
+        ];
     }
 
     private function botToken(): string {

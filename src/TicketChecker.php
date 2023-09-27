@@ -41,12 +41,7 @@ class TicketChecker
     }
 
     private function sendMessageToClient(array $item, TicketCheckerValueObject $valueObject): void {
-
-        $source        = $valueObject->getSource();
-        $destination   = $valueObject->getDestination();
-        $departureDate = $item['DepartureDate'];
-        $link          = Safar724::BASE_URL . "/bus/$source-$destination?date=$departureDate/#/service:{$item['ID']}-{$item['DestinationCode']}";
-
+        $link                = $this->generateCheckoutLink($item, $valueObject);
         $sourceTerminal      = $item['OriginTerminalPersianName'];
         $destinationTerminal = $item['DestinationTerminalPersianName'];
         $date                = $this->enToFaNumbers("{$item['DepartureDate']} {$item['DepartureTime']}");
@@ -64,11 +59,20 @@ class TicketChecker
 🚍 نوع اتوبوس: $busType
 🏢 شرکت: $companyName
 💰 قیمت: $price
-💯 درصد تخفیف: $discount%
-🌐 لینک خرید: <a href='$link'>لینک خرید</a>
-";
+💯 درصد تخفیف: $discount%";
 
-        $this->notificationService->sendMessage($valueObject->getChatId(), $message, ['parse_mode' => 'HTML']);
+        $button = [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => "✅ خرید",
+                        'url'  => $link
+                    ]
+                ]
+            ]
+        ];
+
+        $this->notificationService->sendMessage($valueObject->getChatId(), $message, ['reply_markup' => $button]);
     }
 
     private function enToFaNumbers(string|int $input): string {
@@ -77,5 +81,18 @@ class TicketChecker
             ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'],
             $input
         );
+    }
+
+    protected function generateCheckoutLink(array $item, TicketCheckerValueObject $valueObject): string {
+        $id                 = $item['ID'];
+        $source             = $valueObject->getSource();
+        $destination        = $valueObject->getDestination();
+        $departureDate      = str_replace('/', '-', $item['DepartureDate']);
+        $originTerminalCode = $item['OriginTerminalCode'];
+        $destinationCode    = $item['DestinationCode'];
+
+        return Safar724::BASE_URL .
+               "/checkout/$originTerminalCode/$source/$destinationCode/$destination/" .
+               "$departureDate/$id-$destinationCode#step-reserve";
     }
 }

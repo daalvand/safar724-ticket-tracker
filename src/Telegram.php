@@ -14,14 +14,12 @@ class Telegram
      */
     public function sendMessage(int|string $chatId, string $message, array $options): string {
 
-        $query = $options + [
+        $json = $options + [
                 'chat_id'              => $chatId,
                 'text'                 => $message,
                 'disable_notification' => false
             ];
-        $res   = $this->request('sendMessage', 'GET', [
-            'query' => $query
-        ]);
+        $res  = $this->request('sendMessage', 'GET', ['json' => $json]);
         return $res->getBody()->getContents();
     }
 

@@ -2,6 +2,7 @@
 
 namespace Daalvand\Safar724AutoTrack;
 
+use Carbon\Carbon;
 use Daalvand\Safar724AutoTrack\ValueObjects\TicketCheckerValueObject;
 use Morilog\Jalali\Jalalian;
 
@@ -10,22 +11,23 @@ class TicketChecker
     protected Safar724 $client;
     protected Telegram $notificationService;
 
-    public function __construct() {
-        $this->client              = new Safar724();
+    public function __construct()
+    {
+        $this->client = new Safar724();
         $this->notificationService = new Telegram();
     }
 
-    public function track(TicketCheckerValueObject $valueObject): void {
+    public function track(TicketCheckerValueObject $valueObject): void
+    {
         $fromDate = Jalalian::fromCarbon($valueObject->getFrom());
-        $toDate   = Jalalian::fromCarbon($valueObject->getTo());
-
+        $toDate = Jalalian::fromCarbon($valueObject->getTo());
         $checked = 0;
         while ($checked < $valueObject->getCheckTimes()) {
             $date = $fromDate;
             while ($date->lessThanOrEqualsTo($toDate)) {
                 $data = $this->checkTicket($date, $valueObject);
                 foreach ($data['Items'] as $item) {
-                    if ($item['AvailableSeatCount'] > 0 && $this->ticketTimeIsValid($item, $fromDate, $toDate)) {
+                    if ($item['AvailableSeatCount'] > 0 && $this->ticketTimeIsValid($item, $valueObject)) {
                         $this->sendMessageToClient($item, $valueObject);
                     }
                 }
@@ -36,20 +38,22 @@ class TicketChecker
         }
     }
 
-    private function checkTicket(Jalalian $date, TicketCheckerValueObject $valueObject): array {
+    private function checkTicket(Jalalian $date, TicketCheckerValueObject $valueObject): array
+    {
         return $this->client->checkTicket($date, $valueObject->getSource(), $valueObject->getDestination());
     }
 
-    private function sendMessageToClient(array $item, TicketCheckerValueObject $valueObject): void {
-        $link                = $this->generateCheckoutLink($item, $valueObject);
-        $sourceTerminal      = $item['OriginTerminalPersianName'];
+    private function sendMessageToClient(array $item, TicketCheckerValueObject $valueObject): void
+    {
+        $link = $this->generateCheckoutLink($item, $valueObject);
+        $sourceTerminal = $item['OriginTerminalPersianName'];
         $destinationTerminal = $item['DestinationTerminalPersianName'];
-        $date                = $this->enToFaNumbers("{$item['DepartureDate']} {$item['DepartureTime']}");
-        $price               = $this->enToFaNumbers($item['Price']);
-        $discount            = $this->enToFaNumbers($item['DiscountPercentage']);
-        $availableSeatCount  = $this->enToFaNumbers($item['AvailableSeatCount']);
-        $companyName         = $this->enToFaNumbers($item['CompanyPersianName']);
-        $busType             = $item['BusType'];
+        $date = $this->enToFaNumbers("{$item['DepartureDate']} {$item['DepartureTime']}");
+        $price = $this->enToFaNumbers($item['Price']);
+        $discount = $this->enToFaNumbers($item['DiscountPercentage']);
+        $availableSeatCount = $this->enToFaNumbers($item['AvailableSeatCount']);
+        $companyName = $this->enToFaNumbers($item['CompanyPersianName']);
+        $busType = $item['BusType'];
 
         $message = "✨ اتوبوس موجود است:
 🚌 از: $sourceTerminal
@@ -66,7 +70,7 @@ class TicketChecker
                 [
                     [
                         'text' => "✅ خرید",
-                        'url'  => $link
+                        'url' => $link
                     ]
                 ]
             ]
@@ -75,7 +79,8 @@ class TicketChecker
         $this->notificationService->sendMessage($valueObject->getChatId(), $message, ['reply_markup' => $button]);
     }
 
-    private function enToFaNumbers(string|int $input): string {
+    private function enToFaNumbers(string|int $input): string
+    {
         return str_replace(
             ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
             ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'],
@@ -83,22 +88,33 @@ class TicketChecker
         );
     }
 
-    protected function generateCheckoutLink(array $item, TicketCheckerValueObject $valueObject): string {
-        $id                 = $item['ID'];
-        $source             = $valueObject->getSource();
-        $destination        = $valueObject->getDestination();
-        $departureDate      = str_replace('/', '-', $item['DepartureDate']);
+    protected function generateCheckoutLink(array $item, TicketCheckerValueObject $valueObject): string
+    {
+        $id = $item['ID'];
+        $source = $valueObject->getSource();
+        $destination = $valueObject->getDestination();
+        $departureDate = str_replace('/', '-', $item['DepartureDate']);
         $originTerminalCode = $item['OriginTerminalCode'];
-        $destinationCode    = $item['DestinationCode'];
+        $destinationCode = $item['DestinationCode'];
 
         return Safar724::BASE_URL .
-               "/checkout/$originTerminalCode/$source/$destinationCode/$destination/" .
-               "$departureDate/$id-$destinationCode#step-reserve";
+            "/checkout/$originTerminalCode/$source/$destinationCode/$destination/" .
+            "$departureDate/$id-$destinationCode#step-reserve";
     }
 
-    private function ticketTimeIsValid(array $item, Jalalian $fromDate, Jalalian $toDate): bool
+    private function ticketTimeIsValid(array $item, TicketCheckerValueObject $valueObject): bool
     {
-        $time = Jalalian::fromFormat("Y-m-d H:i","{$item['DepartureDate']} {$item['DepartureTime']}");
-        return $time->lessThanOrEqualsTo($toDate) && $time->greaterThanOrEqualsTo($fromDate);
+        $commonDate = "2000-01-01 ";
+        $fromTime = $valueObject->getFromTime();
+        $toTime = $valueObject->getToTime();
+        $startDateTime = Jalalian::fromFormat('Y-m-d H:i', $commonDate . $fromTime);
+        $endDateTime = Jalalian::fromFormat('Y-m-d H:i', $commonDate . $toTime);
+        $recordDateTime = Jalalian::fromFormat('Y-m-d H:i', $commonDate . $item['DepartureTime']);
+        if ($endDateTime->lessThanOrEqualsTo($startDateTime)) {
+            $endDateTime = $endDateTime->addDay();
+        }
+
+        return $recordDateTime->greaterThanOrEqualsTo($startDateTime) &&
+            $recordDateTime->lessThanOrEqualsTo($endDateTime);
     }
 }

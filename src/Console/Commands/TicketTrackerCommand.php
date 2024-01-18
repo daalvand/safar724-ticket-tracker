@@ -10,28 +10,31 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Validator\Validation;
 use Symfony\Component\Validator\Constraints as Assert;
 use Throwable;
 
 class TicketTrackerCommand extends Command
 {
-    protected function configure(): void {
+    protected function configure(): void
+    {
         $this->setName('ticket-tracker')
-             ->setDescription('Track ticket information')
-             ->setHelp('This command tracks ticket information for a specific route and date range.')
-             ->addArgument('source', InputArgument::REQUIRED, 'Source location')
-             ->addArgument('destination', InputArgument::REQUIRED, 'Destination location')
-             ->addArgument('from-date', InputArgument::REQUIRED, 'Start date for tracking')
-             ->addArgument('to-date', InputArgument::REQUIRED, 'End date for tracking')
-             ->addOption('telegram-chat-id', null, InputOption::VALUE_OPTIONAL, 'Telegram chat ID for notifications', (int)$_ENV['TELEGRAM_CHAT_ID'])
-             ->addOption('check-duration', null, InputOption::VALUE_OPTIONAL, 'Check duration in seconds (optional)')
-             ->addOption('check-times', null, InputOption::VALUE_OPTIONAL, 'Number of times to check (optional)');
+            ->setDescription('Track ticket information')
+            ->setHelp('This command tracks ticket information for a specific route and date range.')
+            ->addOption('source', mode: InputOption::VALUE_REQUIRED, description: 'Source location')
+            ->addOption('destination', mode: InputOption::VALUE_REQUIRED, description: 'Destination location')
+            ->addOption('from-date', mode: InputOption::VALUE_REQUIRED, description: 'Start date for tracking', default: Carbon::today()->toString())
+            ->addOption('to-date', mode: InputOption::VALUE_REQUIRED, description: 'End date for tracking', default: Carbon::tomorrow()->toString())
+            ->addOption('from-time', mode: InputOption::VALUE_REQUIRED, description: 'Start time for tracking', default: '00:00')
+            ->addOption('to-time', mode: InputOption::VALUE_REQUIRED, description: 'End time for tracking', default: '23:59')
+            ->addOption('telegram-chat-id', mode: InputOption::VALUE_OPTIONAL, description: 'Telegram chat ID for notifications', default: (int)$_ENV['TELEGRAM_CHAT_ID'])
+            ->addOption('check-duration', mode: InputOption::VALUE_OPTIONAL, description: 'Check duration in seconds (optional)')
+            ->addOption('check-times', mode: InputOption::VALUE_OPTIONAL, description: 'Number of times to check (optional)');
     }
 
 
-    protected function execute(InputInterface $input, OutputInterface $output): int {
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
         try {
             $validationErrors = $this->validateInput($input);
             if (!empty($validationErrors)) {
@@ -42,15 +45,24 @@ class TicketTrackerCommand extends Command
             }
 
             // Continue with the execution logic
-            $source        = $input->getArgument('source');
-            $destination   = $input->getArgument('destination');
-            $from          = Carbon::parse($input->getArgument('from-date'));
-            $to            = Carbon::parse($input->getArgument('to-date'));
-            $chatId        = $input->getOption('telegram-chat-id');
+            $source = $input->getOption('source');
+            $destination = $input->getOption('destination');
+            $from = Carbon::parse($input->getOption('from-date'));
+            $to = Carbon::parse($input->getOption('to-date'));
+            $fromTime = $input->getOption('from-time');
+            $toTime = $input->getOption('to-time');
+            $chatId = $input->getOption('telegram-chat-id');
             $checkDuration = $input->getOption('check-duration');
-            $checkTimes    = $input->getOption('check-times');
+            $checkTimes = $input->getOption('check-times');
 
-            $valueObject = new TicketCheckerValueObject($from, $to, $source, $destination, $chatId);
+            $valueObject = new TicketCheckerValueObject();
+            $valueObject->setFrom($from);
+            $valueObject->setTo($to);
+            $valueObject->setFromTime($fromTime);
+            $valueObject->setToTime($toTime);
+            $valueObject->setSource($source);
+            $valueObject->setDestination($destination);
+            $valueObject->setChatId($chatId);
 
             if ($checkDuration) {
                 $valueObject->setCheckDuration($checkDuration);
@@ -64,46 +76,47 @@ class TicketTrackerCommand extends Command
             $checker->track($valueObject);
 
             return Command::SUCCESS;
-        }catch (Throwable $throwable){
+        } catch (Throwable $throwable) {
             $output->writeln(sprintf('<error>%s</error>', $throwable->getMessage()));
             $output->writeln(sprintf('<error>%s</error>', $throwable->getTraceAsString()));
             return Command::FAILURE;
         }
     }
 
-    private function validateInput(InputInterface $input): array {
+    private function validateInput(InputInterface $input): array
+    {
         $validator = Validation::createValidator();
-        $errors    = [];
-        $cities    = array_column((new Safar724())->getCities(), 'Name');
+        $errors = [];
+        $cities = array_column((new Safar724())->getCities(), 'Name');
 
         // Define validation rules for each input argument
         $validationRules = [
-            'source'           => [
+            'source' => [
                 new Assert\NotBlank(),
                 new Assert\Choice(['choices' => $cities]),
             ],
-            'destination'      => [
+            'destination' => [
                 new Assert\NotBlank(),
                 new Assert\Choice(['choices' => $cities]),
             ],
-            'from-date'        => [
+            'from-date' => [
                 new Assert\NotBlank(),
-                new Assert\DateTime(),
+                new Assert\Date(),
             ],
-            'to-date'          => [
+            'to-date' => [
                 new Assert\NotBlank(),
-                new Assert\DateTime(),
+                new Assert\Date(),
                 new Assert\LessThanOrEqual(['propertyPath' => 'from-date', 'message' => 'To date must be less than or equal to from date.']),
             ],
             'telegram-chat-id' => [
                 new Assert\Type(['type' => 'integer', 'message' => 'Telegram chat ID must be an integer.']),
                 new Assert\GreaterThan(['value' => 0, 'message' => 'Telegram chat ID must be greater than 0.']),
             ],
-            'check-duration'   => [
+            'check-duration' => [
                 new Assert\Optional(),
                 new Assert\Type(['type' => 'integer', 'message' => 'Check duration must be an integer.']),
             ],
-            'check-times'      => [
+            'check-times' => [
                 new Assert\Optional(),
                 new Assert\Type(['type' => 'integer', 'message' => 'Check times must be an integer.']),
             ],

@@ -8,20 +8,14 @@ class TicketCheckerValueObject
 {
     private Carbon $from;
     private Carbon $to;
+
+    private string $fromTime = '00:00';
+    private string $toTime = '23:59';
     private string|int $source;
     private string|int $destination;
     private int $checkDuration = 3600;
     private int $checkTimes = 10;
     private int $chatId;
-
-    public function __construct(Carbon $from, Carbon $to, string|int $source, string|int $destination, int $chatId)
-    {
-        $this->from        = $from;
-        $this->to          = $to;
-        $this->source      = $source;
-        $this->destination = $destination;
-        $this->chatId      = $chatId;
-    }
 
     public function getFrom(): Carbon
     {
@@ -97,6 +91,28 @@ class TicketCheckerValueObject
     public function setChatId(int $chatId): static
     {
         $this->chatId = $chatId;
+        return $this;
+    }
+
+    public function getFromTime(): string
+    {
+        return $this->fromTime;
+    }
+
+    public function getToTime(): string
+    {
+        return $this->toTime;
+    }
+
+    public function setFromTime(string $fromTime): static
+    {
+        $this->fromTime = $fromTime;
+        return $this;
+    }
+
+    public function setToTime(string $toTime): static
+    {
+        $this->toTime = $toTime;
         return $this;
     }
 }

@@ -1,5 +1,5 @@
 # Safar724 Ticket Tracker
 
 ```shell
-  php console ticket-tracker borujerd tehran "2023-01-19 22:00:00" "1402-01-20 00:30:00"
+  php console ticket-tracker --source=borujerd --destination=tehran --from-date=2024-01-19 --to-date=2024-01-20 --from-time=23:00 --to-time=00:30
 ```

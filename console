@@ -1,7 +1,11 @@
 #!/usr/bin/env php
 <?php
+
+date_default_timezone_set('Asia/Tehran');
+
 require_once __DIR__ . '/vendor/autoload.php';
 
+use Daalvand\Safar724AutoTrack\Console\Commands\ReserveTicketCommand;
 use Daalvand\Safar724AutoTrack\Console\Commands\TicketTrackerCommand;
 use Dotenv\Dotenv;
 use Symfony\Component\Console\Application;
@@ -11,4 +15,6 @@ $dotenv->load();
 
 $app = new Application();
 $app->add(new TicketTrackerCommand());
+$app->add(new ReserveTicketCommand());
+
 $app->run();

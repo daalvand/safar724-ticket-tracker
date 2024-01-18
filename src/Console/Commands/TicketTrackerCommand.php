@@ -10,14 +10,14 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Validator\Validation;
 use Symfony\Component\Validator\Constraints as Assert;
-use Throwable;
 
-class TicketTrackerCommand extends Command
+class TicketTrackerCommand extends BaseCommand
 {
     protected function configure(): void
     {
+        parent::configure();
+
         $this->setName('ticket-tracker')
             ->setDescription('Track ticket information')
             ->setHelp('This command tracks ticket information for a specific route and date range.')
@@ -32,113 +32,74 @@ class TicketTrackerCommand extends Command
             ->addOption('check-times', mode: InputOption::VALUE_OPTIONAL, description: 'Number of times to check (optional)');
     }
 
-
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        try {
-            $validationErrors = $this->validateInput($input);
-            if (!empty($validationErrors)) {
-                foreach ($validationErrors as $error) {
-                    $output->writeln($error);
-                }
-                return Command::FAILURE;
-            }
+        $source        = $input->getOption('source');
+        $destination   = $input->getOption('destination');
+        $from          = Carbon::parse($input->getOption('from-date'));
+        $to            = Carbon::parse($input->getOption('to-date'));
+        $fromTime      = $input->getOption('from-time');
+        $toTime        = $input->getOption('to-time');
+        $chatId        = $input->getOption('telegram-chat-id');
+        $checkDuration = $input->getOption('check-duration');
+        $checkTimes    = $input->getOption('check-times');
 
-            // Continue with the execution logic
-            $source = $input->getOption('source');
-            $destination = $input->getOption('destination');
-            $from = Carbon::parse($input->getOption('from-date'));
-            $to = Carbon::parse($input->getOption('to-date'));
-            $fromTime = $input->getOption('from-time');
-            $toTime = $input->getOption('to-time');
-            $chatId = $input->getOption('telegram-chat-id');
-            $checkDuration = $input->getOption('check-duration');
-            $checkTimes = $input->getOption('check-times');
+        $valueObject = new TicketCheckerValueObject();
+        $valueObject->setFrom($from);
+        $valueObject->setTo($to);
+        $valueObject->setFromTime($fromTime);
+        $valueObject->setToTime($toTime);
+        $valueObject->setSource($source);
+        $valueObject->setDestination($destination);
+        $valueObject->setChatId($chatId);
 
-            $valueObject = new TicketCheckerValueObject();
-            $valueObject->setFrom($from);
-            $valueObject->setTo($to);
-            $valueObject->setFromTime($fromTime);
-            $valueObject->setToTime($toTime);
-            $valueObject->setSource($source);
-            $valueObject->setDestination($destination);
-            $valueObject->setChatId($chatId);
-
-            if ($checkDuration) {
-                $valueObject->setCheckDuration($checkDuration);
-            }
-
-            if ($checkTimes) {
-                $valueObject->setCheckTimes($checkTimes);
-            }
-
-            $checker = new TicketChecker();
-            $checker->track($valueObject);
-
-            return Command::SUCCESS;
-        } catch (Throwable $throwable) {
-            $output->writeln(sprintf('<error>%s</error>', $throwable->getMessage()));
-            $output->writeln(sprintf('<error>%s</error>', $throwable->getTraceAsString()));
-            return Command::FAILURE;
+        if ($checkDuration) {
+            $valueObject->setCheckDuration($checkDuration);
         }
+
+        if ($checkTimes) {
+            $valueObject->setCheckTimes($checkTimes);
+        }
+
+        $checker = new TicketChecker();
+        $checker->track($valueObject);
+
+        return Command::SUCCESS;
     }
 
-    private function validateInput(InputInterface $input): array
+    protected function rules(): array
     {
-        $validator = Validation::createValidator();
-        $errors = [];
         $cities = array_column((new Safar724())->getCities(), 'Name');
-
-        // Define validation rules for each input argument
-        $validationRules = [
-            'source' => [
+        return [
+            'source'           => [
                 new Assert\NotBlank(),
-                new Assert\Choice(['choices' => $cities]),
+                new Assert\Choice(choices: $cities),
             ],
-            'destination' => [
+            'destination'      => [
                 new Assert\NotBlank(),
-                new Assert\Choice(['choices' => $cities]),
+                new Assert\Choice(choices: $cities),
             ],
-            'from-date' => [
+            'from-date'        => [
                 new Assert\NotBlank(),
                 new Assert\Date(),
             ],
-            'to-date' => [
+            'to-date'          => [
                 new Assert\NotBlank(),
                 new Assert\Date(),
-                new Assert\LessThanOrEqual(['propertyPath' => 'from-date', 'message' => 'To date must be less than or equal to from date.']),
+                new Assert\LessThanOrEqual(propertyPath: 'from-date', message: 'To date must be less than or equal to from date.'),
             ],
             'telegram-chat-id' => [
-                new Assert\Type(['type' => 'integer', 'message' => 'Telegram chat ID must be an integer.']),
-                new Assert\GreaterThan(['value' => 0, 'message' => 'Telegram chat ID must be greater than 0.']),
+                new Assert\Type(type: 'integer', message: 'Telegram chat ID must be an integer.'),
+                new Assert\GreaterThan(value: 0, message: 'Telegram chat ID must be greater than 0.'),
             ],
-            'check-duration' => [
+            'check-duration'   => [
                 new Assert\Optional(),
-                new Assert\Type(['type' => 'integer', 'message' => 'Check duration must be an integer.']),
+                new Assert\Type(type: 'integer', message: 'Check duration must be an integer.'),
             ],
-            'check-times' => [
+            'check-times'      => [
                 new Assert\Optional(),
-                new Assert\Type(['type' => 'integer', 'message' => 'Check times must be an integer.']),
+                new Assert\Type(type: 'integer', message: 'Check times must be an integer.'),
             ],
         ];
-
-        foreach ($validationRules as $argument => $rules) {
-            if ($input->hasArgument($argument)) {
-                $value = $input->getArgument($argument);
-            } else {
-                $value = $input->getOption($argument);
-            }
-
-            $violations = $validator->validate($value, $rules);
-
-            if (count($violations) > 0) {
-                foreach ($violations as $violation) {
-                    $errors[] = sprintf('<error>%s: %s</error>', ucfirst($argument), $violation->getMessage());
-                }
-            }
-        }
-
-        return $errors;
     }
-
 }

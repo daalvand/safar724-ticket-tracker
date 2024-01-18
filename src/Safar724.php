@@ -64,7 +64,7 @@ class Safar724
         }
     }
 
-    private function getId(string $location): int|null {
+    public function getId(string $location): int|null {
         $cities = $this->getCities();
 
         foreach ($cities as $city) {

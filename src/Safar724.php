@@ -18,11 +18,32 @@ class Safar724
     public const BASE_URL = 'https://safar724.com';
     public const VERIFY   = false;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->cache = new FilesystemAdapter();
     }
 
-    public function checkTicket(Carbon|Jalalian $date, string|int $source, string|int $destination): array {
+    public function setServices(int $origin, $destination, string $date)
+    {
+        $res     = $this->request('bus/getservices', 'GET', [
+            'query' => [
+                'origin'      => $origin,
+                'destination' => $destination,
+                'date'        => $date,
+            ]
+        ]);
+        return json_decode($res->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    public function setServiceDetail(int $id, int $destination): array
+    {
+        $res = $this->request('bus/servicedetails', 'GET', ['query' => ['destinationCode' => $destination, 'id' => $id]]);
+        return json_decode($res->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+
+    public function checkTicket(Carbon|Jalalian $date, string|int $source, string|int $destination): array
+    {
         $sourceId      = (int)$source === $source ? $source : $this->getId($source);
         $destinationId = (int)$destination === $destination ? $destination : $this->getId($destination);
 
@@ -48,7 +69,8 @@ class Safar724
         return json_decode($res->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
     }
 
-    public function request(string $path, string $httpMethod = 'GET', array $options = []): ResponseInterface {
+    public function request(string $path, string $httpMethod = 'GET', array $options = []): ResponseInterface
+    {
         $url = self::BASE_URL . '/' . trim($path, '/ ');
 
         $options += ['headers' => $this->getHeaders(), 'http_errors' => false, 'verify' => self::VERIFY];
@@ -64,7 +86,8 @@ class Safar724
         }
     }
 
-    public function getId(string $location): int|null {
+    public function getId(string $location): int|null
+    {
         $cities = $this->getCities();
 
         foreach ($cities as $city) {
@@ -76,7 +99,8 @@ class Safar724
         return isset($cityEntry['Code']) ? (int)$cityEntry['Code'] : null;
     }
 
-    public function getCities(): array {
+    public function getCities(): array
+    {
         return $this->cache->get("safar724_cities", function (ItemInterface $item): array {
             $response = $this->request('route/getcities');
             $json     = $response->getBody()->getContents();
@@ -86,7 +110,8 @@ class Safar724
         });
     }
 
-    private function getHeaders(): array {
+    private function getHeaders(): array
+    {
         return json_decode(file_get_contents(__DIR__ . '/safar724-headers.json'), true);
     }
 

@@ -4,6 +4,7 @@ namespace Daalvand\Safar724AutoTrack\Console\Commands;
 
 use Carbon\Carbon;
 use Daalvand\Safar724AutoTrack\Safar724;
+use Morilog\Jalali\Jalalian;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -20,22 +21,21 @@ class ReserveTicketCommand extends BaseCommand
         $this->setName('reserve-ticket')
             ->setDescription('Reserve a ticket for a specific route and date')
             ->setHelp('This command reserves a ticket and retries if necessary.')
-            ->addOption('max_try', mode: InputOption::VALUE_OPTIONAL, description: 'Maximum number of reservation attempts', default: 1000)
-            ->addOption('interval', mode: InputOption::VALUE_OPTIONAL, description: 'Interval between reservation attempts in seconds', default: 600)
-            ->addOption('source', mode: InputOption::VALUE_REQUIRED, description: 'Source location')
-            ->addOption('destination', mode: InputOption::VALUE_REQUIRED, description: 'Destination location')
-            ->addOption('passenger-name', mode: InputOption::VALUE_OPTIONAL, description: 'Passenger name', default: 'John')
-            ->addOption('passenger-lastname', mode: InputOption::VALUE_OPTIONAL, description: 'Passenger last name', default: 'Doe')
-            ->addOption('passenger-mobile', mode: InputOption::VALUE_OPTIONAL, description: 'Passenger mobile', default: '09123456789')
-            ->addOption('passenger-gender', mode: InputOption::VALUE_OPTIONAL, description: 'Passenger gender', default: 0)
-            ->addOption('passenger-code', mode: InputOption::VALUE_OPTIONAL, description: 'Passenger code', default: '0592231151')
-            ->addOption('seat-number', mode: InputOption::VALUE_OPTIONAL, description: 'Seat number', default: 14)
-            ->addOption('service-id', mode: InputOption::VALUE_OPTIONAL, description: 'Service ID', default: 28743786);
+            ->addOption('max_try', mode: InputOption::VALUE_REQUIRED, description: 'Maximum number of reservation attempts', default: 1000)
+            ->addOption('interval', mode: InputOption::VALUE_REQUIRED, description: 'Interval between reservation attempts in seconds', default: 600)
+            ->addOption('passenger-name', mode: InputOption::VALUE_REQUIRED, description: 'Passenger name', default: 'John')
+            ->addOption('passenger-lastname', mode: InputOption::VALUE_REQUIRED, description: 'Passenger last name', default: 'Doe')
+            ->addOption('passenger-mobile', mode: InputOption::VALUE_REQUIRED, description: 'Passenger mobile', default: '09123456789')
+            ->addOption('passenger-gender', mode: InputOption::VALUE_REQUIRED, description: 'Passenger gender', default: 0)
+            ->addOption('passenger-code', mode: InputOption::VALUE_REQUIRED, description: 'Passenger code', default: '4653119597')
+            ->addOption('seat-number', mode: InputOption::VALUE_REQUIRED, description: 'Seat number')
+            ->addOption('service-id', mode: InputOption::VALUE_REQUIRED, description: 'Service ID')
+            ->addOption('destination', mode: InputOption::VALUE_REQUIRED, description: 'Destination location');
+
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $source            = $input->getOption('source');
         $destination       = $input->getOption('destination');
         $passengerName     = $input->getOption('passenger-name');
         $passengerLastname = $input->getOption('passenger-lastname');
@@ -46,8 +46,11 @@ class ReserveTicketCommand extends BaseCommand
         $serviceId         = $input->getOption('service-id');
 
 
-        $sourceId      = (new Safar724())->getId($source);
         $destinationId = (new Safar724())->getId($destination);
+        $serviceDetail = (new Safar724())->setServiceDetail($serviceId, $destinationId);
+        $sourceId      = $serviceDetail['OriginCode'];
+        $source        = $serviceDetail['OriginName'];
+        $date          = Jalalian::fromFormat('Y/m/d', $serviceDetail['Date'])->format('Y-m-d');
 
         $payload = [
             'paymentDetails' => [
@@ -56,9 +59,9 @@ class ReserveTicketCommand extends BaseCommand
                 'SelectedSeats'   => $seatNumber,
                 'OriginName'      => $source,
                 'DestinationName' => $destination,
-                'DestinationCode' => 11320000,
+                'DestinationCode' => $destinationId,
                 'Discount'        => 0,
-                'ReturnUrl'       => "/checkout/$sourceId/$source/$destinationId/$destination/1402-10-29/$serviceId",
+                'ReturnUrl'       => "/checkout/$sourceId/$source/$destinationId/$destination/$date/$serviceId",
             ],
             'passenger'      => [
                 'name'     => $passengerName,
@@ -115,10 +118,6 @@ class ReserveTicketCommand extends BaseCommand
         $cities = array_column((new Safar724())->getCities(), 'Name');
 
         return [
-            'source'             => [
-                new Assert\NotBlank(),
-                new Assert\Choice(choices: $cities),
-            ],
             'destination'        => [
                 new Assert\NotBlank(),
                 new Assert\Choice(choices: $cities),

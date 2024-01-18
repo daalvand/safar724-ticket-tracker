@@ -3,9 +3,11 @@
 namespace Daalvand\Safar724AutoTrack;
 
 use Carbon\Carbon;
+use Daalvand\Safar724AutoTrack\Exceptions\RequestException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use InvalidArgumentException;
+use JsonException;
 use Morilog\Jalali\Jalalian;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
@@ -23,6 +25,14 @@ class Safar724
         $this->cache = new FilesystemAdapter();
     }
 
+    /**
+     * @param int $origin
+     * @param $destination
+     * @param string $date
+     * @return mixed
+     * @throws JsonException
+     * @throws RequestException
+     */
     public function setServices(int $origin, $destination, string $date)
     {
         $res     = $this->request('bus/getservices', 'GET', [
@@ -35,13 +45,28 @@ class Safar724
         return json_decode($res->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * @param int $id
+     * @param int $destination
+     * @return array
+     * @throws JsonException
+     * @throws RequestException
+     */
     public function setServiceDetail(int $id, int $destination): array
     {
-        $res = $this->request('bus/servicedetails', 'GET', ['query' => ['destinationCode' => $destination, 'id' => $id]]);
+        $res = $this->request('checkout/servicedetails', 'GET', ['query' => ['destinationCode' => $destination, 'id' => $id]]);
         return json_decode($res->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
     }
 
 
+    /**
+     * @param Carbon|Jalalian $date
+     * @param string|int $source
+     * @param string|int $destination
+     * @return array
+     * @throws RequestException
+     * @throws JsonException
+     */
     public function checkTicket(Carbon|Jalalian $date, string|int $source, string|int $destination): array
     {
         $sourceId      = (int)$source === $source ? $source : $this->getId($source);
@@ -69,6 +94,13 @@ class Safar724
         return json_decode($res->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * @param string $path
+     * @param string $httpMethod
+     * @param array $options
+     * @return ResponseInterface
+     * @throws RequestException
+     */
     public function request(string $path, string $httpMethod = 'GET', array $options = []): ResponseInterface
     {
         $url = self::BASE_URL . '/' . trim($path, '/ ');
@@ -78,11 +110,11 @@ class Safar724
             $client   = new Client();
             $response = $client->request($httpMethod, $url, $options);
             if ($response->getStatusCode() !== 200) {
-                throw new RuntimeException('safar724 error error CODE: ' . $response->getStatusCode() . ' BODY: ' . $response->getBody()->getContents());
+                throw new RequestException('safar724 error code:: ' . $response->getStatusCode() . 'body:: '. $response->getBody());
             }
             return $response;
         } catch (GuzzleException $e) {
-            throw new RuntimeException('safar724 error happened: ' . $e->getMessage());
+            throw new RequestException('safar724 error',  $e->getCode(), $e);
         }
     }
 

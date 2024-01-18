@@ -3,6 +3,7 @@
 namespace Daalvand\Safar724AutoTrack\Console\Commands;
 
 use Carbon\Carbon;
+use Daalvand\Safar724AutoTrack\Exceptions\RequestException;
 use Daalvand\Safar724AutoTrack\Safar724;
 use Daalvand\Safar724AutoTrack\TicketChecker;
 use Daalvand\Safar724AutoTrack\ValueObjects\TicketCheckerValueObject;
@@ -61,8 +62,12 @@ class TicketTrackerCommand extends BaseCommand
             $valueObject->setCheckTimes($checkTimes);
         }
 
-        $checker = new TicketChecker();
-        $checker->track($valueObject);
+        try {
+            $checker = new TicketChecker();
+            $checker->track($valueObject);
+        } catch (RequestException) {
+            return $this->execute($input, $output);
+        }
 
         return Command::SUCCESS;
     }
@@ -89,16 +94,16 @@ class TicketTrackerCommand extends BaseCommand
                 new Assert\LessThanOrEqual(propertyPath: 'from-date', message: 'To date must be less than or equal to from date.'),
             ],
             'telegram-chat-id' => [
-                new Assert\Type(type: 'integer', message: 'Telegram chat ID must be an integer.'),
+                new Assert\Type(type: 'numeric', message: 'Telegram chat ID must be an integer.'),
                 new Assert\GreaterThan(value: 0, message: 'Telegram chat ID must be greater than 0.'),
             ],
             'check-duration'   => [
                 new Assert\Optional(),
-                new Assert\Type(type: 'integer', message: 'Check duration must be an integer.'),
+                new Assert\Type(type: 'numeric', message: 'Check duration must be an integer.'),
             ],
             'check-times'      => [
                 new Assert\Optional(),
-                new Assert\Type(type: 'integer', message: 'Check times must be an integer.'),
+                new Assert\Type(type: 'numeric', message: 'Check times must be an integer.'),
             ],
         ];
     }

@@ -3,6 +3,7 @@
 namespace Daalvand\Safar724AutoTrack\Console\Commands;
 
 use Carbon\Carbon;
+use Daalvand\Safar724AutoTrack\Exceptions\RequestException;
 use Daalvand\Safar724AutoTrack\Safar724;
 use Morilog\Jalali\Jalalian;
 use Symfony\Component\Console\Command\Command;
@@ -14,6 +15,40 @@ use Throwable;
 
 class ReserveTicketCommand extends BaseCommand
 {
+    /**
+     * @param InputInterface $input
+     * @param array $payload
+     * @param OutputInterface $output
+     * @return void
+     * @throws RequestException
+     */
+    public function httpRequest(InputInterface $input, array $payload, OutputInterface $output): void
+    {
+        $retried  = 0;
+        $maxTry   = (int)$input->getOption('max_try');
+        $interval = (int)$input->getOption('interval');
+        $client   = new Safar724();
+
+        while ($retried <= $maxTry) {
+            $response = $client->request('checkout/payment', 'POST', [
+                'headers'     => [
+                    'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',
+                ],
+                'form_params' => $payload,
+            ]);
+
+            $body   = json_decode($response->getBody()->getContents(), true);
+            $status = $body['Status'] ?? null;
+            $output->writeln("http status code:: " . $response->getStatusCode());
+            $output->writeln("content:: " . json_encode($body));
+            $output->writeln("status code:: " . $status);
+            $output->writeln("reserve time:: " . Carbon::now('Asia/Tehran')->toDateTimeString());
+            $output->writeln("====================================================");
+            sleep($interval);
+            $retried++;
+        }
+    }
+
     protected function configure(): void
     {
         parent::configure();
@@ -23,8 +58,8 @@ class ReserveTicketCommand extends BaseCommand
             ->setHelp('This command reserves a ticket and retries if necessary.')
             ->addOption('max_try', mode: InputOption::VALUE_REQUIRED, description: 'Maximum number of reservation attempts', default: 1000)
             ->addOption('interval', mode: InputOption::VALUE_REQUIRED, description: 'Interval between reservation attempts in seconds', default: 600)
-            ->addOption('passenger-name', mode: InputOption::VALUE_REQUIRED, description: 'Passenger name', default: 'John')
-            ->addOption('passenger-lastname', mode: InputOption::VALUE_REQUIRED, description: 'Passenger last name', default: 'Doe')
+            ->addOption('passenger-name', mode: InputOption::VALUE_REQUIRED, description: 'Passenger name', default: 'علی')
+            ->addOption('passenger-lastname', mode: InputOption::VALUE_REQUIRED, description: 'Passenger last name', default: 'حجتی')
             ->addOption('passenger-mobile', mode: InputOption::VALUE_REQUIRED, description: 'Passenger mobile', default: '09123456789')
             ->addOption('passenger-gender', mode: InputOption::VALUE_REQUIRED, description: 'Passenger gender', default: 0)
             ->addOption('passenger-code', mode: InputOption::VALUE_REQUIRED, description: 'Passenger code', default: '4653119597')
@@ -49,17 +84,18 @@ class ReserveTicketCommand extends BaseCommand
         $destinationId = (new Safar724())->getId($destination);
         $serviceDetail = (new Safar724())->setServiceDetail($serviceId, $destinationId);
         $sourceId      = $serviceDetail['OriginCode'];
-        $source        = $serviceDetail['OriginName'];
+        $source        = $serviceDetail['OriginEnglishName'];
         $date          = Jalalian::fromFormat('Y/m/d', $serviceDetail['Date'])->format('Y-m-d');
+        $accountId     = $serviceDetail['Payments'][0]['AccountId'];
 
         $payload = [
             'paymentDetails' => [
-                'AccountId'       => random_int(1000, 10000),
-                'ServiceID'       => $serviceId,
-                'SelectedSeats'   => $seatNumber,
+                'AccountId'       => $accountId,
+                'ServiceID'       => (int)$serviceId,
+                'SelectedSeats'   => (int)$seatNumber,
                 'OriginName'      => $source,
                 'DestinationName' => $destination,
-                'DestinationCode' => $destinationId,
+                'DestinationCode' => (int)$destinationId,
                 'Discount'        => 0,
                 'ReturnUrl'       => "/checkout/$sourceId/$source/$destinationId/$destination/$date/$serviceId",
             ],
@@ -67,7 +103,7 @@ class ReserveTicketCommand extends BaseCommand
                 'name'     => $passengerName,
                 'lastname' => $passengerLastname,
                 'mobile'   => $passengerMobile,
-                'gender'   => $passengerGender,
+                'gender'   => (int)$passengerGender,
                 'code'     => $passengerCode,
             ],
             'headers'        => [
@@ -81,36 +117,16 @@ class ReserveTicketCommand extends BaseCommand
         ];
 
         try {
-            $retried  = 0;
-            $maxTry   = (int)$input->getOption('max_try');
-            $interval = (int)$input->getOption('interval');
-            $client   = new Safar724();
-
-            while ($retried <= $maxTry) {
-                $response = $client->request('checkout/payment', 'POST', [
-                    'headers'     => [
-                        'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',
-                    ],
-                    'form_params' => $payload,
-                ]);
-
-                $body   = json_decode($response->getBody()->getContents(), true);
-                $status = $body['Status'] ?? null;
-                $output->writeln("http status code:: " . $response->getStatusCode());
-                $output->writeln("content:: " . json_encode($body));
-                $output->writeln("status code:: " . $status);
-                $output->writeln("reserve time:: " . Carbon::now('Asia/Tehran')->toDateTimeString());
-                $output->writeln("====================================================");
-                sleep($interval);
-                $retried++;
-            }
-
+            $this->httpRequest($input, $payload, $output);
             return Command::SUCCESS;
+        } catch (RequestException) {
+            return $this->execute($input, $output);
         } catch (Throwable $throwable) {
             $output->writeln(sprintf('<error>%s</error>', $throwable->getMessage()));
+            $output->writeln(sprintf('<error>%s</error>', get_class($throwable)));
             $output->writeln(sprintf('<error>%s</error>', $throwable->getTraceAsString()));
-            return Command::FAILURE;
         }
+        return Command::SUCCESS;
     }
 
     protected function rules(): array

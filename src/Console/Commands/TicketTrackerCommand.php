@@ -2,6 +2,7 @@
 
 namespace Daalvand\Safar724AutoTrack\Console\Commands;
 
+use Carbon\Carbon;
 use Daalvand\Safar724AutoTrack\Safar724;
 use Daalvand\Safar724AutoTrack\TicketChecker;
 use Daalvand\Safar724AutoTrack\ValueObjects\TicketCheckerValueObject;
@@ -12,6 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Validator\Validation;
 use Symfony\Component\Validator\Constraints as Assert;
+use Throwable;
 
 class TicketTrackerCommand extends Command
 {
@@ -30,38 +32,43 @@ class TicketTrackerCommand extends Command
 
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
-        $validationErrors = $this->validateInput($input);
-
-        if (!empty($validationErrors)) {
-            foreach ($validationErrors as $error) {
-                $output->writeln(sprintf('<error>%s</error>', $error));
+        try {
+            $validationErrors = $this->validateInput($input);
+            if (!empty($validationErrors)) {
+                foreach ($validationErrors as $error) {
+                    $output->writeln($error);
+                }
+                return Command::FAILURE;
             }
+
+            // Continue with the execution logic
+            $source        = $input->getArgument('source');
+            $destination   = $input->getArgument('destination');
+            $from          = Carbon::parse($input->getArgument('from-date'));
+            $to            = Carbon::parse($input->getArgument('to-date'));
+            $chatId        = $input->getOption('telegram-chat-id');
+            $checkDuration = $input->getOption('check-duration');
+            $checkTimes    = $input->getOption('check-times');
+
+            $valueObject = new TicketCheckerValueObject($from, $to, $source, $destination, $chatId);
+
+            if ($checkDuration) {
+                $valueObject->setCheckDuration($checkDuration);
+            }
+
+            if ($checkTimes) {
+                $valueObject->setCheckTimes($checkTimes);
+            }
+
+            $checker = new TicketChecker();
+            $checker->track($valueObject);
+
+            return Command::SUCCESS;
+        }catch (Throwable $throwable){
+            $output->writeln(sprintf('<error>%s</error>', $throwable->getMessage()));
+            $output->writeln(sprintf('<error>%s</error>', $throwable->getTraceAsString()));
             return Command::FAILURE;
         }
-
-        // Continue with the execution logic
-        $source        = $input->getArgument('source');
-        $destination   = $input->getArgument('destination');
-        $from          = $input->getArgument('from-date');
-        $to            = $input->getArgument('to-date');
-        $chatId        = $input->getOption('telegram-chat-id');
-        $checkDuration = $input->getOption('check-duration');
-        $checkTimes    = $input->getOption('check-times');
-
-        $valueObject = new TicketCheckerValueObject($from, $to, $source, $destination, $chatId);
-
-        if ($checkDuration) {
-            $valueObject->setCheckDuration($checkDuration);
-        }
-
-        if ($checkTimes) {
-            $valueObject->setCheckTimes($checkTimes);
-        }
-
-        $checker = new TicketChecker();
-        $checker->track($valueObject);
-
-        return Command::SUCCESS;
     }
 
     private function validateInput(InputInterface $input): array {
@@ -81,11 +88,11 @@ class TicketTrackerCommand extends Command
             ],
             'from-date'        => [
                 new Assert\NotBlank(),
-                new Assert\Date(),
+                new Assert\DateTime(),
             ],
             'to-date'          => [
                 new Assert\NotBlank(),
-                new Assert\Date(),
+                new Assert\DateTime(),
                 new Assert\LessThanOrEqual(['propertyPath' => 'from-date', 'message' => 'To date must be less than or equal to from date.']),
             ],
             'telegram-chat-id' => [

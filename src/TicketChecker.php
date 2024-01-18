@@ -16,8 +16,8 @@ class TicketChecker
     }
 
     public function track(TicketCheckerValueObject $valueObject): void {
-        $fromDate = Jalalian::fromFormat('Y-m-d', $valueObject->getFrom());
-        $toDate   = Jalalian::fromFormat('Y-m-d', $valueObject->getTo());
+        $fromDate = Jalalian::fromCarbon($valueObject->getFrom());
+        $toDate   = Jalalian::fromCarbon($valueObject->getTo());
 
         $checked = 0;
         while ($checked < $valueObject->getCheckTimes()) {
@@ -25,7 +25,7 @@ class TicketChecker
             while ($date->lessThanOrEqualsTo($toDate)) {
                 $data = $this->checkTicket($date, $valueObject);
                 foreach ($data['Items'] as $item) {
-                    if ($item['AvailableSeatCount'] > 0) {
+                    if ($item['AvailableSeatCount'] > 0 && $this->ticketTimeIsValid($item, $fromDate, $toDate)) {
                         $this->sendMessageToClient($item, $valueObject);
                     }
                 }
@@ -94,5 +94,11 @@ class TicketChecker
         return Safar724::BASE_URL .
                "/checkout/$originTerminalCode/$source/$destinationCode/$destination/" .
                "$departureDate/$id-$destinationCode#step-reserve";
+    }
+
+    private function ticketTimeIsValid(array $item, Jalalian $fromDate, Jalalian $toDate): bool
+    {
+        $time = Jalalian::fromFormat("Y-m-d H:i","{$item['DepartureDate']} {$item['DepartureTime']}");
+        return $time->lessThanOrEqualsTo($toDate) && $time->greaterThanOrEqualsTo($fromDate);
     }
 }

@@ -1,5 +1,5 @@
 # Safar724 Ticket Tracker
 
 ```shell
-  php ./bin/console ticket-tracker borujerd tehran 1402-07-02 1402-07-05
+  php console ticket-tracker borujerd tehran "2023-01-19 22:00:00" "1402-01-20 00:30:00"
 ```

@@ -10785,6 +10785,34 @@
         "Order": 1
     },
     {
+        "ID": 2574,
+        "Code": "31363021",
+        "Name": "",
+        "PersianName": "مشهدریزه",
+        "ProvinceName": "Razavi-Khorasan",
+        "ProvincePersianName": "خراسان رضوی",
+        "SearchExpressions": [
+            "مشهدریزه",
+            "razavi-khorasan",
+            "خراسان رضوی",
+            "razavi",
+            "khorasan",
+            "خراسان",
+            "رضوی",
+            "lainvdci",
+            "ovhshk",
+            "vq,d",
+            "مشهدريزه",
+            "مشهدرىزه",
+            "مشهدرئزه",
+            "رضوي",
+            "رضوى",
+            "رضوئ"
+        ],
+        "IsCapital": false,
+        "Order": 0
+    },
+    {
         "ID": 162,
         "Code": "31387022",
         "Name": "nasar",

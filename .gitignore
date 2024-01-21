@@ -1,4 +1,6 @@
 /vendor
 /all-cities.json
 /.idea
+/.vscode
+/.history
 .env
